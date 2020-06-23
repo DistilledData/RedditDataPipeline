@@ -32,15 +32,18 @@ This guide assumes that you are using AWS Secrets Manager to store database logi
 2. Run `python3 dash_reddit_pipeline.py` to start the front end. You may need to configure `sample_get_postgres_credentials.py` as discussed in the **Prepare Data** section. You may also need to change certain arguments in the python file in order to connect to the correct database tables in Postgresql.
 
 ## Project Details
+
+![Data Pipeline](docs/images/data_pipeline.png)
+
 ### The Data
-The data is the daily post data for December 2019 downloaded from [pushshift](https://files.pushshift.io/reddit/daily/). The data is stored in JSON format. The files are stored in an AWS.
+The data is the daily post data for December 2019 downloaded from [pushshift](https://files.pushshift.io/reddit/daily/). The data is stored in JSON format. The files are stored in an AWS S3 bucket.
 
 ### Data Processing
 #### Conversion to Parquet
-In order to take advantage of parquets read-time optimizations, the data was converted from JSON to parquet format. The parquet file was uploaded to an AWS S3 bucket.
+In order to take advantage of parquets optimizations for quick reads, the data was converted from JSON to parquet format. The parquet file was uploaded to an AWS S3 bucket.
 
 #### Computing Statistics
-All post data for a given day is stored in individual file. On a high level, Spark reads in the data from S3, computes the average values, and percentiles, and then writes the resulting data to postgres.
+All post data for a given day is stored in individual file. On a high level, Spark reads in the data from S3, computes daily or monthly statistics, such as average score, average number of comments, and percentiles, and then writes the transformed data to a Postgresql database.
 
 ## References
 [1] https://www.alexa.com/siteinfo/reddit.com#section_traffic "Reddit Alexa Ranking"
