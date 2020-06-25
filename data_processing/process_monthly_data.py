@@ -11,6 +11,35 @@ from calendar import monthrange
 
 from get_postgres_credentials import get_secret
 
+def distributed_percentile(df, field):
+    '''
+    Compute percentiles for the given field in a distributed manner.
+    The algorithm is adapted from a medium article
+    (https://medium.com/swlh/computing-global-rank-of-a-row-in-a-dataframe-with-spark-sql-34f6cc650ae5)
+
+    @param   df the dataframe containing the field of interest
+    @param   field the field over which to compute percentiles
+    @returns a dataframe with the original data and a new column 
+             for the percentile
+    '''
+    
+    df1 = df.select("post_id", field).orderBy(field).withColumn("partitionId", spark_partition_id()).cache()
+    window = Window.partitionBy("partitionId").orderBy(field)
+    rank_df = df1.withColumn("local_rank", rank().over(window)).cache()
+
+    temp_df = rank_df.groupBy("partitionId").agg(_max("local_rank").alias("max_rank"))
+    window = Window.orderBy("partitionId").rowsBetween(Window.unboundedPreceding, Window.currentRow)
+    stats_df = temp_df.withColumn("cum_rank", _sum("max_rank").over(window)).cache()
+
+    stats_df_left = stats_df
+    stats_df_right = stats_df
+    join_df = stats_df_left.alias('l').join(stats_df_right.alias('r'), stats_df_left['partitionId'] == stats_df_right['partitionId'] + 1,"left").select(col("l.partitionId"), coalesce(col("r.cum_rank"),lit(0)).alias("sum_factor"))
+    rank_df1 = rank_df.join(join_df, "partitionId", "inner").withColumn("rank", col("local_rank") + col("sum_factor"))
+    rank_df2 = rank_df1.withColumn("percent_rank_" + field + "_monthly", percent_rank().over(Window.partitionBy().orderBy(df[field]))).select("post_id", "percent_rank_" + field + "_monthly")
+    df2 = df.join(rank_df2, 'post_id', 'left')
+
+    return df2
+
 def process_monthly_data(post_year, post_month, average_score, average_number_comments,s3_bucket, logfile, secrets, table_name = "monthly_posts"):
     '''
     Compute post statistics for a given month and store results in a database.
@@ -71,15 +100,18 @@ def process_monthly_data(post_year, post_month, average_score, average_number_co
 
     logfile.write("\t\tComputing percentiles for score\n")
     start = time.time()
+
     #compute percentiles for score
-    monthly_df1 = monthly_df.withColumn("percent_rank_number_comments_monthly", percent_rank().over(Window.partitionBy().orderBy(monthly_df['number_comments'])))
+    monthly_df1 = distributed_percentile(monthly_df, "score")
+    
     end = time.time()
     logfile.write("\t\ttime elapsed: {} \n\n".format(end - start))
     
     logfile.write("\t\tComputing percentiles for number comments\n")
     start = time.time()
     #compute percentiles for number_comments
-    monthly_df2 = monthly_df1.withColumn("percent_rank_score_monthly", percent_rank().over(Window.partitionBy().orderBy(monthly_df1['score'])))
+    monthly_df2 = distributed_percentile(monthly_df1, "number_comments")
+    
     end = time.time()
     logfile.write("\t\ttime elapsed: {} \n\n".format(end - start))
 
@@ -94,7 +126,7 @@ def process_monthly_data(post_year, post_month, average_score, average_number_co
     start = time.time()
 
     #select subset of fields that will be written to database
-    monthly_df5 = monthly_df4.select("post_id", "is_num_comments_greater_than_monthly_average", "is_score_greater_than_monthly_average", "percent_rank_number_comments_monthly", "percent_rank_score_monthly")
+    monthly_df5 = monthly_df4.select("post_id", "is_num_comments_greater_than_monthly_average", "is_score_greater_than_monthly_average", "percent_rank_number_comments_monthly", "percent_rank_score_monthly","post_date")
     #secrets dict: {"username":","password":","host":","port":"}
     jdbc_url = 'jdbc:postgresql://' + secrets['host'] + ':' + secrets['port'] + '/' + secrets['dbname']
     #write data to database
@@ -221,14 +253,14 @@ if __name__ == '__main__':
                           required=True)
     optional = parser.add_argument_group("optional arguments")
     optional.add_argument("--logfile_name", help="name of the logfile to which to" +
-                          " write", default="logs/process_montly_data_2019_12.log")
+                          " write", default="log/process_montly_data_2019_12.log")
     optional.add_argument("--daily_averages_table_name", help  = "name of the database table holding daily statistics for posts", default = "daily_post_averages")
     optional.add_argument("--monthly_averages_table_name", help = "name of the database table hojlding monthly statistics for posts", default = "monthly_post_averages")
     
     args =  parser.parse_args()
     
     sc = SparkContext("spark://ec2-3-219-180-255.compute-1.amazonaws.com:7077",
-                      "aggregate_monthly_data_not_distributed_partition_TRIAL_3")
+                      "aggregate_monthly_data_distributed_partition_TRIAL_3")
     sqlContext = SQLContext(sc)
     #sqlContext.sql("SET spark.sql.autoBroadcastJoinThreshold = -1")
     spark = SparkSession(sc)
