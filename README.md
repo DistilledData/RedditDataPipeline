@@ -7,6 +7,8 @@ Data pipeline for historical Reddit data
 
 **AWS Services**: S3, EC2, Secrets Manager
 
+[Slides](https://docs.google.com/presentation/d/1RnfaQbXpeO8Gn6usoUpiTrwgdkaIlmAPKILA0G3qvEs/edit?usp=sharing)    
+[Front-end](http://insight.redditadsproject.xyz)
 ## Introduction
 Reddit, the self-proclaimed "front page of the internet", is the sixth most popular website in the US[1], and has on average 21 billion screen views per month [2]. This is prime real estate for advertising. Adverstisers want to maximize the reach of their advertisements, either by advertising early on posts that are engaging, or commenting on these posts early to maximize user interaction.
 
