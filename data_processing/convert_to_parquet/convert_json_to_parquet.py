@@ -40,17 +40,19 @@ if __name__ == '__main__':
                           default = "s3a://reddit-data-parquet/")
     optional.add_argument("--logfile_name", help="name of the logfile to which to" +
                           " write", default="logs/process_montly_data_2019_12.log")
-     
+    optional.add_argument("--day", help="day on which to start converting files for the month", default = 1)
+    
     args =  parser.parse_args()
     
     sc = SparkContext("spark://ec2-3-219-180-255.compute-1.amazonaws.com:7077","convert_to_parquet")
     sqlContext = SQLContext(sc)
     post_year = int(args.year)
     post_month = int(args.month)
-
+    post_day = int(args.day)
+    
     #get number of days in month
     first_day_weekday, number_days_month = monthrange(post_year, post_month)
-    daily_post_files = ["posts/" + str(post_year) + "-" + str(post_month) + "/RS_" + str(post_year) + '-' + str(post_month) +'-' + str(i).zfill(2) for i in range(1,number_days_month + 1)]
+    daily_post_files = ["posts/" + str(post_year) + "-" + str(post_month).zfill(2) + "/RS_" + str(post_year) + '-' + str(post_month).zfill(2) +'-' + str(i).zfill(2) for i in range(post_day, number_days_month + 1)]
     logfile_name = args.logfile_name
     with open(logfile_name, "a") as logfile:
         for daily_post_file in daily_post_files:
