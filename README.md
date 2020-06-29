@@ -17,20 +17,20 @@ While the term "engaging post" is ambiguous and may be the subject of it own dat
 ## Quickstart Guide
 ### Postgresql
 1. Install Postgresql and setup the database for remote access.
-2. Create database 'reddit' and then create the tables using the scripts in `databasse/scripts`.
+2. Create database 'reddit' and then create the tables using the scripts in `src/sql_scripts`.
 ### Spark Cluster Setup
 0. Setup keyless ssh between the master and worker nodes.
-1. Install prerequisites and Spark binaries using the script `install_spark_prereqs.sh` in the `setup` directory. Install the python3 packages listed in `requirements_spark_cluster.txt` in the `setup` directory on the master and worker nodes.
+1. Install prerequisites and Spark binaries on the master and worker nodes using the script `install_spark_prereqs.sh` in the `src/bash_scripts/setup_scripts` directory. Install the python3 packages listed in `requirements_spark_cluster.txt` on the master and worker nodes.
 2. Setup the master node according to this [article](https://blog.insightdatascience.com/simply-install-spark-cluster-mode-341843a52b88).
 ### Prepare Data
-1. Download pushshift data and upload JSON data to an AWS S3 bucket using `download_and_upload_daily_post_data.sh` script in the `data_ingestion` directory.
-2. Run `run_convert_to_parquet.sh` script in the `data_processing/convert_to_parquet` directory (you will probably need to add arguments, such as the appropriate AWS S3 bucket url, to the script).
+1. Download pushshift data and upload JSON data to an AWS S3 bucket using `download_and_upload_daily_post_data.sh` script in the `src/bash_scripts/data_ingestion` directory.
+2. Run `run_convert_to_parquet.sh` script in the `src/bash_scripts/data_processing` directory (you will probably need to add arguments, such as the appropriate AWS S3 bucket url, to the script).
 ### Process Data
 This guide assumes that you are using AWS Secrets Manager to store database login credentials.
-1. In the `utils` directory, rename `sample_get_postgres_credentials.py` to `get_postgres_credentials.py`, adding the required string to access the database login credentials from AWS Secrets Manager.
-2. Run the `run_process_daily_posts.sh` script in the `data_processing` directory, adding arguments as necessary.
+1. In the `src/python3/utils` directory, rename `sample_get_postgres_credentials.py` to `get_postgres_credentials.py`, and add the appropriate values for `secret_name` and `region_name`.
+2. Run the `run_process_daily_posts.sh` script in the `src/bash_scripts/data_processing` directory, adding arguments as necessary.
 ### Dash Front-End
-1. Install dash requirements in `requirements_dash_front_end.txt` in the `setup` directory. You may find the script `dash_setup.sh` in the `setup` directory helpful.
+1. Install dash requirements in `requirements_dash_front_end.txt`. You may find the script `dash_setup.sh` in the `src/bash_scripts/setup_scripts` directory helpful.
 2. Run `python3 dash_reddit_pipeline.py` to start the front end. You may need to configure `sample_get_postgres_credentials.py` as discussed in the **Prepare Data** section. You may also need to change certain arguments in the python file in order to connect to the correct database tables in Postgresql.
 
 ## Project Details
